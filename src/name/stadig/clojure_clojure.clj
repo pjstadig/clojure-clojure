@@ -8,12 +8,16 @@
 ;;;;
 ;;;; You must not remove this notice, or any other, from this software.
 (ns name.stadig.clojure-clojure
-  (:refer-clojure :exclude [cons count doseq empty first list? meta next peek
-                            pop reduce rest seq seq? sequential? str with-meta])
+  (:refer-clojure :exclude [= cons count doseq empty first hash list? meta next
+                            peek pop reduce rest seq seq? sequential? str
+                            with-meta])
   (:require [name.stadig.clojure-clojure.protocols :as proto])
   (:import (java.io Serializable)
            (java.util Arrays Collection Iterator List ListIterator
                       NoSuchElementException)))
+
+(defn = [o p]
+  (proto/equiv o p))
 
 (defn cons [x s] (proto/cons s x))
 
@@ -22,6 +26,8 @@
 (defn empty [s] (proto/empty s))
 
 (defn first [s] (proto/first s))
+
+(defn hash [o] (proto/hasheq o))
 
 (defn list? [s] (proto/list? s))
 
@@ -70,7 +76,7 @@
 (extend-protocol proto/IEquivable
   Object
   (equiv [this o]
-    (.equals this o))
+    (clojure.core/= this o))
   Byte
   (equiv [this o]
     (if (or (instance? Byte o)
@@ -101,22 +107,22 @@
             (instance? Short o)
             (instance? Integer o)
             (instance? Long o))
-      (= (long this) (long o))
+      (clojure.core/= (long this) (long o))
       false)))
 
 (extend-protocol proto/IHashEq
   Object
   (hasheq [this]
-    (.hashCode this))
+    (clojure.core/hash this))
   Byte
   (hasheq [this]
-    (proto/hasheq (.longValue this)))
+    (hash (.longValue this)))
   Short
   (hasheq [this]
-    (proto/hasheq (.longValue this)))
+    (hash (.longValue this)))
   Integer
   (hasheq [this]
-    (proto/hasheq (.longValue this)))
+    (hash (.longValue this)))
   Long
   (hasheq [this]
     (let [this (long this)]
@@ -165,12 +171,12 @@
       (cond
        (and (instance? List o) (not= _count (.size o)))
        false
-       (and (satisfies? proto/Counted o) (not= _count (proto/count o)))
+       (and (satisfies? proto/Counted o) (not= _count (count o)))
        false
        (instance? List o)
        (loop [i 0]
          (if (< i _count)
-           (if (proto/equiv (.get this i) (.get o i))
+           (if (= (.get this i) (.get o i))
              (recur (inc i))
              false)
            true))
@@ -178,7 +184,7 @@
        (loop [s1 this
               s2 o]
          (if (and (seq s1) (seq s2))
-           (if (proto/equiv (first s1) (first s2))
+           (if (= (first s1) (first s2))
              (recur (next s1) (next s2))
              false)
            (not (or (seq s1) (seq s2))))))
@@ -289,9 +295,9 @@
   (hasheq [this]
     (loop [f _first
            r _rest
-           hash 1]
+           h 1]
       (if f
-        (recur (first r) (rest r) (+ (* 31 hash) (proto/hasheq f)))
+        (recur (first r) (rest r) (+ (* 31 h) (hash f)))
         hash)))
   proto/IPersistentList
   (list? [this] true)
@@ -351,7 +357,7 @@
     (if (or (instance? List o) (satisfies? proto/Sequential o))
       (cond
        (and (instance? List o) (= 0 (.size o))) true
-       (and (satisfies? proto/Counted o) (= 0 (proto/count o))) true
+       (and (satisfies? proto/Counted o) (= 0 (count o))) true
        (not (seq o)) true
        :else false)
       false))
