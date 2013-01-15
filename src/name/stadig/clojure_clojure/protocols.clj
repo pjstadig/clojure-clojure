@@ -51,4 +51,5 @@
   (reduce [this f] [this f init]))
 
 (defprotocol Counted
-  (count [this]))
+  (count [this])
+  (counted? [this]))

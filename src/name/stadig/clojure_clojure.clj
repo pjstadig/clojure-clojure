@@ -8,9 +8,9 @@
 ;;;;
 ;;;; You must not remove this notice, or any other, from this software.
 (ns name.stadig.clojure-clojure
-  (:refer-clojure :exclude [= cons count doseq empty first hash list? meta next
-                            peek pop reduce rest seq seq? sequential? str
-                            with-meta])
+  (:refer-clojure :exclude [= cons count counted? doseq empty first hash list?
+                            meta next peek pop reduce rest seq seq? sequential?
+                            str with-meta])
   (:require [name.stadig.clojure-clojure.protocols :as proto])
   (:import (java.io Serializable)
            (java.util Arrays Collection Iterator List ListIterator
@@ -22,6 +22,8 @@
 (defn cons [x s] (proto/cons s x))
 
 (defn count [s] (proto/count s))
+
+(defn counted? [o] (proto/counted? o))
 
 (defn empty [s] (proto/empty s))
 
@@ -167,11 +169,11 @@
   (cons [this o] (PersistentList. o this (inc _count) _meta))
   proto/IEquivable
   (equiv [this o]
-    (if (or (instance? List o) (satisfies? proto/Sequential o))
+    (if (or (instance? List o) (sequential? o))
       (cond
        (and (instance? List o) (not= _count (.size o)))
        false
-       (and (satisfies? proto/Counted o) (not= _count (count o)))
+       (and (counted? o) (not= _count (count o)))
        false
        (instance? List o)
        (loop [i 0]
@@ -315,6 +317,7 @@
         result)))
   proto/Counted
   (count [this] _count)
+  (counted? [this] true)
   Object
   (equals [this o]
     (if (and (instance? List o) (= _count (.size o)))
@@ -354,10 +357,10 @@
   (cons [this o] (PersistentList. o this 1 _meta))
   proto/IEquivable
   (equiv [this o]
-    (if (or (instance? List o) (satisfies? proto/Sequential o))
+    (if (or (instance? List o) (sequential? o))
       (cond
        (and (instance? List o) (= 0 (.size o))) true
-       (and (satisfies? proto/Counted o) (= 0 (count o))) true
+       (and (counted? o) (= 0 (count o))) true
        (not (seq o)) true
        :else false)
       false))
@@ -439,6 +442,7 @@
   (reduce [this f init] init)
   proto/Counted
   (count [this] 0)
+  (counted? [this] true)
   Object
   (equals [this o]
     (if (and (instance? List o) (= 0 (.size o)))
