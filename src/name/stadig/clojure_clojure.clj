@@ -269,14 +269,7 @@
   (retainAll [this c] (throw (UnsupportedOperationException.)))
   (size [this] _count)
   (toArray [this]
-    (let [a (object-array _count)]
-      (loop [f _first
-             r _rest
-             i 0]
-        (if f
-          (do (aset a i f)
-              (recur (first r) (rest r) (inc i)))
-          a))))
+    (.toArray this (object-array _count)))
   (toArray [this a]
     (if (< (alength a) _count)
       (let [a (Arrays/copyOf a _count)]
