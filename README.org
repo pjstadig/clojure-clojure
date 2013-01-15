@@ -6,6 +6,19 @@
   not all.  This isn't Clojure-in-Clojure.  I do not expect to replace the
   Clojure compiler, nor do I expect to implement Var, IFn, the STM, and many
   other bits of Java code.
+** Status
+   Currently implemented:
+   - PersistentList
+
+   Yet to be implemented:
+   - PersistentArrayMap
+   - PersistentHashMap
+   - PersistentHashSet
+   - PersistentQueue
+   - PersistentStructMap
+   - PersistentTreeMap
+   - PersistentTreeSet
+   - PersistentVector
 ** License
    : Copyright © 2013 Paul Stadig.  All rights reserved.
    : 
