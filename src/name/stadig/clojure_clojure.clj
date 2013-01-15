@@ -75,61 +75,6 @@
     0
     (.hashCode o)))
 
-(extend-protocol proto/IEquivable
-  Object
-  (equiv [this o]
-    (clojure.core/= this o))
-  Byte
-  (equiv [this o]
-    (if (or (instance? Byte o)
-            (instance? Short o)
-            (instance? Integer o)
-            (instance? Long o))
-      (= (long this) (long o))
-      false))
-  Short
-  (equiv [this o]
-    (if (or (instance? Byte o)
-            (instance? Short o)
-            (instance? Integer o)
-            (instance? Long o))
-      (= (long this) (long o))
-      false))
-  Integer
-  (equiv [this o]
-    (if (or (instance? Byte o)
-            (instance? Short o)
-            (instance? Integer o)
-            (instance? Long o))
-      (= (long this) (long o))
-      false))
-  Long
-  (equiv [this o]
-    (if (or (instance? Byte o)
-            (instance? Short o)
-            (instance? Integer o)
-            (instance? Long o))
-      (clojure.core/= (long this) (long o))
-      false)))
-
-(extend-protocol proto/IHashEq
-  Object
-  (hasheq [this]
-    (clojure.core/hash this))
-  Byte
-  (hasheq [this]
-    (hash (.longValue this)))
-  Short
-  (hasheq [this]
-    (hash (.longValue this)))
-  Integer
-  (hasheq [this]
-    (hash (.longValue this)))
-  Long
-  (hasheq [this]
-    (let [this (long this)]
-      (unchecked-int (bit-xor this (unsigned-bit-shift-right this 32))))))
-
 (deftype PersistentListIterator [_list ^:volatile-mutable _index]
   ListIterator
   (add [this e] (throw (UnsupportedOperationException.)))
