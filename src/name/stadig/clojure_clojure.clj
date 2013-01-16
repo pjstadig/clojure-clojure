@@ -123,6 +123,23 @@
       (recur (+ (* 31 h) (hash (first s))) (next s))
       h)))
 
+(defn- seq-to-array*
+  ([s]
+     (seq-to-array* s (object-array (count s))))
+  ([s a]
+     (let [_count (count s)]
+       (if (< (alength a) _count)
+         (let [a (Arrays/copyOf a _count)]
+           (seq-to-array* s a))
+         (do (loop [r (seq s)
+                    i 0]
+               (if (< i _count)
+                 (do (aset a i (first r))
+                     (recur (next r) (inc i)))))
+             (when (> (alength a) _count)
+               (aset a _count nil))
+             a)))))
+
 (defn- seq-to-string* [s]
   (let [sb (StringBuilder. "(")
         s (seq s)]
@@ -253,20 +270,9 @@
   (retainAll [this c] (throw (UnsupportedOperationException.)))
   (size [this] _count)
   (toArray [this]
-    (.toArray this (object-array _count)))
+    (seq-to-array* this))
   (toArray [this a]
-    (if (< (alength a) _count)
-      (let [a (Arrays/copyOf a _count)]
-        (.toArray this a))
-      (do (loop [f _first
-                 r _rest
-                 i 0]
-            (if (< i _count)
-              (do (aset a i f)
-                  (recur (first r) (rest r) (inc i)))))
-          (when (> (alength a) _count)
-            (aset a _count nil))
-          a)))
+    (seq-to-array* this a))
   Iterable
   (iterator [this]
     (.listIterator this))
