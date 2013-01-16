@@ -8,18 +8,18 @@
 ;;;;
 ;;;; You must not remove this notice, or any other, from this software.
 (ns name.stadig.clojure-clojure
-  (:refer-clojure :exclude [= cons count counted? doseq empty first hash list?
-                            meta next peek pop reduce rest seq seq? sequential?
-                            str with-meta])
+  (:refer-clojure :exclude [= conj cons count counted? doseq empty first hash
+                            list? meta next peek pop reduce rest seq seq?
+                            sequential? str with-meta])
   (:require [name.stadig.clojure-clojure.protocols :as proto])
   (:import (java.io Serializable)
-           (java.util Arrays Collection Iterator List ListIterator
-                      NoSuchElementException)))
+           (java.util ArrayList Arrays Collection Collections Iterator List
+                      ListIterator NoSuchElementException)))
 
 (defn = [o p]
   (proto/equiv o p))
 
-(defn cons [x s] (proto/cons s x))
+(defn conj [s x] (proto/cons s x))
 
 (defn count [s] (proto/count s))
 
@@ -27,7 +27,9 @@
 
 (defn empty [s] (proto/empty s))
 
-(defn first [s] (proto/first s))
+(declare seq)
+
+(defn first [s] (proto/first (seq s)))
 
 (defn hash [o] (proto/hasheq o))
 
@@ -140,6 +142,9 @@
                (aset a _count nil))
              a)))))
 
+(defn- seq-to-list* [s]
+  (Collections/unmodifiableList (ArrayList. s)))
+
 (defn- seq-to-string* [s]
   (let [sb (StringBuilder. "(")
         s (seq s)]
@@ -152,6 +157,129 @@
           (recur (next s)))))
     (.append sb ")")
     (.toString sb)))
+
+(declare empty-list)
+
+(deftype SeqIterator [^:volatile-mutable _seq]
+  Iterator
+  (hasNext [this]
+    (boolean _seq))
+  (next [this]
+    (when (nil? _seq)
+      (throw (NoSuchElementException.)))
+    (let [_first (first _seq)]
+      (set! _seq (next _seq))
+      _first))
+  (remove [this] (throw (UnsupportedOperationException.))))
+
+(deftype Cons [_first _more _meta]
+  proto/IObj
+  (with-meta [this meta] (Cons. _first _more meta))
+  proto/IMeta
+  (meta [this] _meta)
+  Serializable
+  proto/IConsable
+  (cons [this o] (Cons. o this nil))
+  proto/ISeq
+  (first [this] _first)
+  (next [this] (seq _more))
+  (more [this] _more)
+  proto/Counted
+  (count [this]
+    (loop [i 1
+           s (seq _more)]
+      (if s
+        (if (counted? s)
+          (+ i (count s))
+          (recur (inc i) (next s)))
+        i)))
+  (counted? [this] true)
+  proto/IEquivable
+  (equiv [this o] (seq-equiv* this o))
+  proto/IPersistentCollection
+  (empty [this] empty-list)
+  proto/Seqable
+  (seq [this] this)
+  proto/Sequential
+  (sequential? [this] true)
+  List
+  (add [this i e] (throw (UnsupportedOperationException.)))
+  (addAll [this i c] (throw (UnsupportedOperationException.)))
+  (get [this i]
+    (if (and (<= 0 i) (< i (count this)))
+      (loop [s this
+             j i]
+        (if (> j 0)
+          (recur (rest s) (dec j))
+          (first s)))
+      (throw (IndexOutOfBoundsException.))))
+  (indexOf [this o]
+    (loop [i 0]
+      (if (< i (count this))
+        (if (equals* o (.get this i))
+          i
+          (recur (inc i)))
+        -1)))
+  (lastIndexOf [this o]
+    (loop [last-idx -1
+           i 0]
+      (if (< i (count this))
+        (if (equals* o (.get this i))
+          (recur i (inc i))
+          (recur last-idx (inc i)))
+        last-idx)))
+  (listIterator [this]
+    (.listIterator this -1))
+  (listIterator [this i]
+    (.listIterator (seq-to-list* this) i))
+  (remove [this ^int i] (throw (UnsupportedOperationException.)))
+  (set [this i e] (throw (UnsupportedOperationException.)))
+  (subList [this from to]
+    (loop [sub-list empty-list
+           i 0
+           s this]
+      (cond
+       (< i from)
+       (recur sub-list (inc i) (rest s))
+       (and (>= i from) (< i to))
+       (recur (conj (first s) sub-list) (inc i) (rest s))
+       (>= i to)
+       (loop [s sub-list
+              sub-list empty-list]
+         (if (seq s)
+           (recur (rest s) (conj (first s) sub-list))
+           sub-list)))))
+  Collection
+  (add [this e] (throw (UnsupportedOperationException.)))
+  (addAll [this c] (throw (UnsupportedOperationException.)))
+  (clear [this] (throw (UnsupportedOperationException.)))
+  (contains [this o]
+    (not (= -1 (.indexOf this o))))
+  (containsAll [this c]
+    (let [itr (.iterator c)]
+      (loop [itr itr]
+        (if (.hasNext itr)
+          (if (not (.contains this (.next itr)))
+            false
+            (recur itr))
+          true))))
+  (isEmpty [this] false)
+  (^boolean remove [this o] (throw (UnsupportedOperationException.)))
+  (removeAll [this c] (throw (UnsupportedOperationException.)))
+  (retainAll [this c] (throw (UnsupportedOperationException.)))
+  (size [this] (count this))
+  (toArray [this] (seq-to-array* this))
+  (toArray [this a] (seq-to-array* this a))
+  Iterable
+  (iterator [this] (SeqIterator. this))
+  proto/IHashEq
+  (hasheq [this] (seq-hasheq* this))
+  Object
+  (equals [this o] (seq-equals* this o))
+  (hashCode [this] (seq-hash-code* this))
+  (toString [this] (seq-to-string* this)))
+
+(defn cons [x s] (Cons. x s nil))
 
 (deftype PersistentListIterator [_list ^:volatile-mutable _index]
   ListIterator
@@ -179,8 +307,6 @@
       (set! _index index)
       (.get _list index)))
   (remove [this] (throw (UnsupportedOperationException.))))
-
-(declare empty-list)
 
 (deftype PersistentList [_first _rest _count _meta]
   proto/IMeta
