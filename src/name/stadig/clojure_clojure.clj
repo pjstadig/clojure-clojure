@@ -75,6 +75,67 @@
     0
     (.hashCode o)))
 
+(defn- seq-equals* [s o]
+  (cond
+   (identical? s o)
+   true
+   (not= (hash-code* s) (hash-code* o))
+   false
+   (and (not (instance? List o)) (not (sequential? o)))
+   false
+   (or (not (counted? s)) (not (counted? o)) (not= (count s) (count o)))
+   false
+   :else
+   (loop [s (seq s)
+          o (seq o)]
+     (if s
+       (if (equals* (first s) (first o))
+         (recur (next s) (next o))
+         false)
+       true))))
+
+(defn- seq-equiv* [s o]
+  (cond
+   (and (not (instance? List o)) (not (sequential? o)))
+   false
+   (or (not (counted? s)) (not (counted? o)) (not= (count s) (count o)))
+   false
+   :else
+   (loop [s (seq s)
+          o (seq o)]
+     (if s
+       (if (= (first s) (first o))
+         (recur (next s) (next o))
+         false)
+       true))))
+
+(defn- seq-hash-code* [s]
+  (loop [h 1
+         s (seq s)]
+    (if s
+      (recur (+ (* 31 h) (hash-code* (first s))) (next s))
+      h)))
+
+(defn- seq-hasheq* [s]
+  (loop [h 1
+         s (seq s)]
+    (if s
+      (recur (+ (* 31 h) (hash (first s))) (next s))
+      h)))
+
+(defn- seq-to-string* [s]
+  (let [sb (StringBuilder. "(")
+        s (seq s)]
+    (when s
+      (.append sb (str (first s)))
+      (loop [s (next s)]
+        (when s
+          (.append sb " ")
+          (.append sb (str (first s)))
+          (recur (next s)))))
+    (.append sb ")")
+    (.toString sb)))
+
 (deftype PersistentListIterator [_list ^:volatile-mutable _index]
   ListIterator
   (add [this e] (throw (UnsupportedOperationException.)))
@@ -113,29 +174,7 @@
   proto/IConsable
   (cons [this o] (PersistentList. o this (inc _count) _meta))
   proto/IEquivable
-  (equiv [this o]
-    (if (or (instance? List o) (sequential? o))
-      (cond
-       (and (instance? List o) (not= _count (.size o)))
-       false
-       (and (counted? o) (not= _count (count o)))
-       false
-       (instance? List o)
-       (loop [i 0]
-         (if (< i _count)
-           (if (= (.get this i) (.get o i))
-             (recur (inc i))
-             false)
-           true))
-       :else
-       (loop [s1 this
-              s2 o]
-         (if (and (seq s1) (seq s2))
-           (if (= (first s1) (first s2))
-             (recur (next s1) (next s2))
-             false)
-           (not (or (seq s1) (seq s2))))))
-      false))
+  (equiv [this o] (seq-equiv* this o))
   proto/IPersistentCollection
   (empty [this] empty-list)
   proto/Seqable
@@ -232,13 +271,7 @@
   (iterator [this]
     (.listIterator this))
   proto/IHashEq
-  (hasheq [this]
-    (loop [f _first
-           r _rest
-           h 1]
-      (if f
-        (recur (first r) (rest r) (+ (* 31 h) (hash f)))
-        hash)))
+  (hasheq [this] (seq-hasheq* this))
   proto/IPersistentList
   (list? [this] true)
   proto/IPersistentStack
@@ -257,33 +290,9 @@
   (count [this] _count)
   (counted? [this] true)
   Object
-  (equals [this o]
-    (if (and (instance? List o) (= _count (.size o)))
-      (loop [i 0]
-        (if (< i _count)
-          (if (equals* (.get this i) (.get o i))
-            (recur (inc i))
-            false)
-          true))
-      false))
-  (hashCode [this]
-    (loop [f _first
-           r _rest
-           hash 1]
-      (if f
-        (recur (first r) (rest r) (+ (* 31 hash) (hash-code* f)))
-        hash)))
-  (toString [this]
-    (let [sb (StringBuilder. "(")]
-      (.append sb (str _first))
-      (loop [f (first _rest)
-             r (rest _rest)]
-        (if f
-          (do (.append sb " ")
-              (.append sb (str f))
-              (recur (first r) (rest r)))
-          (.append sb ")")))
-      (.toString sb))))
+  (equals [this o] (seq-equals* this o))
+  (hashCode [this] (seq-hash-code* this))
+  (toString [this] (seq-to-string* this)))
 
 (deftype EmptyPersistentList [_meta]
   proto/IMeta
