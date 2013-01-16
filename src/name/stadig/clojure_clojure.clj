@@ -325,7 +325,7 @@
   proto/ISeq
   (first [this] _first)
   (more [this] _rest)
-  (next [this] _rest)
+  (next [this] (seq _rest))
   (seq? [this] true)
   proto/Sequential
   (sequential? [this] true)
