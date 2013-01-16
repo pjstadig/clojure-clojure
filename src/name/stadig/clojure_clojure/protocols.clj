@@ -37,8 +37,8 @@
   (hasheq [this]))
 
 (extend-protocol IHashEq
-  clojure.lang.IHashEq
-  (hasheq [this] (.hasheq this)))
+  Object
+  (hasheq [this] (clojure.lang.Util/hasheq this)))
 
 (defprotocol IMeta
   (meta [this]))
